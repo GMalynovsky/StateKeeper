@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net48</TargetFrameworks>
+    <Nullable>disable</Nullable>
+    <LangVersion>8</LangVersion>
+  </PropertyGroup>
+
+</Project>
