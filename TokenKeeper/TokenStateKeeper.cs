@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -77,11 +77,11 @@ namespace TokenKeeper
 
     internal abstract class StateKeeper<T> : ITokenInitializer<T>, ITokenMutator<T>, ITokenReader<T>
     {
-        private readonly Dictionary<Guid, TokenState> _states = new Dictionary<Guid, TokenState>();
-        private readonly Dictionary<Guid, long?> _staging = new Dictionary<Guid, long?>();
-        private readonly Dictionary<long, Guid> _hash2Id = new Dictionary<long, Guid>();
-        private readonly Dictionary<long, T> _pool = new Dictionary<long, T>();
-        private readonly object _sync = new object();
+        readonly Dictionary<Guid, TokenState> _states = new Dictionary<Guid, TokenState>();
+        readonly Dictionary<Guid, long?> _staging = new Dictionary<Guid, long?>();
+        readonly Dictionary<long, Guid> _hash2Id = new Dictionary<long, Guid>();
+        readonly Dictionary<long, T> _pool = new Dictionary<long, T>();
+        readonly object _sync = new object();
 
         public TokenOpResult Seed(long hash, T value)
         {
@@ -122,12 +122,17 @@ namespace TokenKeeper
                     _states[id] = st;
                 }
                 _staging.Clear();
+                Prune();
             }
         }
 
         public void Discard()
         {
-            lock (_sync) { _staging.Clear(); }
+            lock (_sync)
+            {
+                _staging.Clear();
+                Prune();
+            }
         }
 
         public bool TryGetSnapshot(long hash, out TokenSnapshot<T> snapshot)
@@ -153,18 +158,17 @@ namespace TokenKeeper
         {
             lock (_sync)
             {
-                var diffs = new List<TokenDiff<T>>();
-                foreach (var kvp in _states)
+                var list = new List<TokenDiff<T>>();
+                foreach (var kv in _states)
                 {
-                    var id = kvp.Key;
-                    var st = kvp.Value;
-                    var stagedHash = _staging.TryGetValue(id, out var value) ? value : st.Current;
-                    if (stagedHash == st.Current) continue;
+                    var id = kv.Key; var st = kv.Value;
+                    var staged = _staging.TryGetValue(id, out var u) ? u : st.Current;
+                    if (staged == st.Current) continue;
                     _pool.TryGetValue(st.Current.GetValueOrDefault(), out var curVal);
-                    _pool.TryGetValue(stagedHash.GetValueOrDefault(), out var unVal);
-                    diffs.Add(new TokenDiff<T>(st.Current, stagedHash, curVal, unVal));
+                    _pool.TryGetValue(staged.GetValueOrDefault(), out var unVal);
+                    list.Add(new TokenDiff<T>(st.Current, staged, curVal, unVal));
                 }
-                return diffs;
+                return list;
             }
         }
 
@@ -173,21 +177,21 @@ namespace TokenKeeper
             lock (_sync) { return BuildDiff(st => new Tuple<long?, long?>(st.Previous ?? st.Initial, st.Current)).ToList(); }
         }
 
-        private IEnumerable<TokenDiff<T>> BuildDiff(Func<TokenState, Tuple<long?, long?>> selector)
+        IEnumerable<TokenDiff<T>> BuildDiff(Func<TokenState, Tuple<long?, long?>> proj)
         {
             foreach (var st in _states.Values)
             {
-                var pair = selector(st);
-                var leftHash = pair.Item1;
-                var rightHash = pair.Item2;
-                if (leftHash == rightHash) continue;
-                _pool.TryGetValue(leftHash.GetValueOrDefault(), out var leftVal);
-                _pool.TryGetValue(rightHash.GetValueOrDefault(), out var rightVal);
-                yield return new TokenDiff<T>(leftHash, rightHash, leftVal, rightVal);
+                var pair = proj(st);
+                var left = pair.Item1; var right = pair.Item2;
+                if (left == right) continue;
+                _pool.TryGetValue(left.GetValueOrDefault(), out var lv);
+                _pool.TryGetValue(right.GetValueOrDefault(), out var rv);
+                yield return new TokenDiff<T>(left, right, lv, rv);
             }
         }
 
-        private TokenOpResult StageInsert(long hash, T value)
+        // --------------------------------------------------------- helpers
+        TokenOpResult StageInsert(long hash, T value)
         {
             if (_hash2Id.ContainsKey(hash)) return TokenOpResult.DuplicateHash;
             var id = Guid.NewGuid();
@@ -198,7 +202,7 @@ namespace TokenKeeper
             return TokenOpResult.Success;
         }
 
-        private TokenOpResult StageDelete(long hash)
+        TokenOpResult StageDelete(long hash)
         {
             if (!_hash2Id.TryGetValue(hash, out var id)) return TokenOpResult.UnknownHash;
             if (_staging.ContainsKey(id)) return TokenOpResult.AlreadyStaged;
@@ -206,10 +210,10 @@ namespace TokenKeeper
             return TokenOpResult.Success;
         }
 
-        private TokenOpResult StageModify(long oldHash, long newHash, T value)
+        TokenOpResult StageModify(long oldHash, long newHash, T value)
         {
             if (!_hash2Id.TryGetValue(oldHash, out var id)) return TokenOpResult.UnknownHash;
-            if (_hash2Id.TryGetValue(newHash, out var otherId) && otherId != id) return TokenOpResult.Collision;
+            if (_hash2Id.TryGetValue(newHash, out var other) && other != id) return TokenOpResult.Collision;
             if (_staging.ContainsKey(id)) return TokenOpResult.AlreadyStaged;
             if (_pool.TryGetValue(newHash, out var existing) && !EqualityComparer<T>.Default.Equals(existing, value)) return TokenOpResult.Collision;
             _hash2Id[newHash] = id;
@@ -217,17 +221,35 @@ namespace TokenKeeper
             _staging[id] = newHash;
             return TokenOpResult.Success;
         }
+
+        void Prune()
+        {
+            var live = new HashSet<long>();
+            foreach (var st in _states.Values)
+            {
+                if (st.Initial.HasValue) live.Add(st.Initial.Value);
+                if (st.Previous.HasValue) live.Add(st.Previous.Value);
+                if (st.Current.HasValue) live.Add(st.Current.Value);
+            }
+            foreach (var h in _staging.Values) if (h.HasValue) live.Add(h.Value);
+            var dead = _pool.Keys.Where(h => !live.Contains(h)).ToList();
+            foreach (var h in dead) _pool.Remove(h);
+        }
     }
 
-    public sealed class TokenStateKeeper : ITokenInitializer<string>, ITokenMutator<string>, ITokenReader<string>
+    public sealed class TokenStateKeeper :
+        ITokenInitializer<string>, ITokenMutator<string>, ITokenReader<string>
     {
-        private sealed class CoreKeeper : StateKeeper<string> { }
-        private readonly CoreKeeper _core = new CoreKeeper();
+        private sealed class Core : StateKeeper<string> { }
+        private readonly Core _core = new Core();
+
         public TokenOpResult Seed(long hash, string value) => _core.Seed(hash, value);
         public TokenOpResult Stage(long? oldHash, long? newHash, string value) => _core.Stage(oldHash, newHash, value);
         public void Commit() => _core.Commit();
         public void Discard() => _core.Discard();
-        public bool TryGetSnapshot(long hash, out TokenSnapshot<string> snapshot) => _core.TryGetSnapshot(hash, out snapshot);
+
+        public bool TryGetSnapshot(long hash, out TokenSnapshot<string> snapshot) =>
+            _core.TryGetSnapshot(hash, out snapshot);
         public IEnumerable<TokenDiff<string>> GetCommittedDiff() => _core.GetCommittedDiff();
         public IEnumerable<TokenDiff<string>> GetUncommittedDiff() => _core.GetUncommittedDiff();
         public IEnumerable<TokenDiff<string>> GetFullDiff() => _core.GetFullDiff();
