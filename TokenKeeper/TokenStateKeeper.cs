@@ -77,11 +77,11 @@ namespace TokenKeeper
 
     internal abstract class StateKeeper<T> : ITokenInitializer<T>, ITokenMutator<T>, ITokenReader<T>
     {
-        readonly Dictionary<Guid, TokenState> _states = new Dictionary<Guid, TokenState>();
-        readonly Dictionary<Guid, long?> _staging = new Dictionary<Guid, long?>();
-        readonly Dictionary<long, Guid> _hash2Id = new Dictionary<long, Guid>();
-        readonly Dictionary<long, T> _pool = new Dictionary<long, T>();
-        readonly object _sync = new object();
+        private readonly Dictionary<Guid, TokenState> _states = new Dictionary<Guid, TokenState>();
+        private readonly Dictionary<Guid, long?> _staging = new Dictionary<Guid, long?>();
+        private readonly Dictionary<long, Guid> _hash2Id = new Dictionary<long, Guid>();
+        private readonly Dictionary<long, T> _pool = new Dictionary<long, T>();
+        private readonly object _sync = new object();
 
         public TokenOpResult Seed(long hash, T value)
         {
@@ -177,7 +177,7 @@ namespace TokenKeeper
             lock (_sync) { return BuildDiff(st => new Tuple<long?, long?>(st.Previous ?? st.Initial, st.Current)).ToList(); }
         }
 
-        IEnumerable<TokenDiff<T>> BuildDiff(Func<TokenState, Tuple<long?, long?>> proj)
+        private IEnumerable<TokenDiff<T>> BuildDiff(Func<TokenState, Tuple<long?, long?>> proj)
         {
             foreach (var st in _states.Values)
             {
@@ -191,7 +191,7 @@ namespace TokenKeeper
         }
 
         // --------------------------------------------------------- helpers
-        TokenOpResult StageInsert(long hash, T value)
+        private TokenOpResult StageInsert(long hash, T value)
         {
             if (_hash2Id.ContainsKey(hash)) return TokenOpResult.DuplicateHash;
             var id = Guid.NewGuid();
@@ -202,7 +202,7 @@ namespace TokenKeeper
             return TokenOpResult.Success;
         }
 
-        TokenOpResult StageDelete(long hash)
+        private TokenOpResult StageDelete(long hash)
         {
             if (!_hash2Id.TryGetValue(hash, out var id)) return TokenOpResult.UnknownHash;
             if (_staging.ContainsKey(id)) return TokenOpResult.AlreadyStaged;
@@ -210,7 +210,7 @@ namespace TokenKeeper
             return TokenOpResult.Success;
         }
 
-        TokenOpResult StageModify(long oldHash, long newHash, T value)
+        private TokenOpResult StageModify(long oldHash, long newHash, T value)
         {
             if (!_hash2Id.TryGetValue(oldHash, out var id)) return TokenOpResult.UnknownHash;
             if (_hash2Id.TryGetValue(newHash, out var other) && other != id) return TokenOpResult.Collision;
@@ -222,7 +222,7 @@ namespace TokenKeeper
             return TokenOpResult.Success;
         }
 
-        void Prune()
+        private void Prune()
         {
             var live = new HashSet<long>();
             foreach (var st in _states.Values)
