@@ -47,7 +47,7 @@ namespace TokenKeeper
 
     public interface ITokenStateReader
     {
-        bool TryGetSnapshot(string hash, out TokenSnapshot<string> snapshot);
+        bool TryGetSnapshot(string hash, out TokenHashSnapshot<string> snapshot);
         IEnumerable<TokenHashDiff<string>> GetCommittedDiff();
         IEnumerable<TokenHashDiff<string>> GetUncommittedDiff();
         IEnumerable<TokenHashDiff<string>> GetFullDiff();
@@ -78,10 +78,20 @@ namespace TokenKeeper
         public void Commit() => _core.Commit();
         public void Discard() => _core.Discard();
 
-        public bool TryGetSnapshot(string hash, out TokenSnapshot<string> snapshot)
+        public bool TryGetSnapshot(string hash, out TokenHashSnapshot<string> snapshot)
         {
-            if (!string.IsNullOrEmpty(hash) && long.TryParse(hash, out var longHash))
-                return _core.TryGetSnapshot(longHash, out snapshot);
+            if (!string.IsNullOrEmpty(hash) && long.TryParse(hash, out var longHash) &&
+                _core.TryGetSnapshot(longHash, out var internalSnapshot))
+            {
+                snapshot = new TokenHashSnapshot<string>(internalSnapshot.InitialHash?.ToString(),
+                     internalSnapshot.PreviousHash?.ToString(),
+                     internalSnapshot.CurrentHash?.ToString(),
+                     internalSnapshot.InitialValue,
+                     internalSnapshot.PreviousValue,
+                     internalSnapshot.CurrentValue);
+
+                return true;
+            }
 
             snapshot = default;
             return false;
