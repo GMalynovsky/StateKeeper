@@ -23,7 +23,7 @@ public class TokenStateKeeperTests
         sut.Stage(null, "2", "B");
         var diff = sut.GetUncommittedDiff().Single();
         Assert.IsNull(diff.LeftHash);
-        Assert.AreEqual(2L, diff.RightHash);
+        Assert.AreEqual("2", diff.RightHash);
     }
 
     [TestMethod]
@@ -72,7 +72,7 @@ public class TokenStateKeeperTests
         sut.Stage("5", null, "");
         sut.Commit();
         var diff = sut.GetFullDiff().Single();
-        Assert.AreEqual(5L, diff.LeftHash);
+        Assert.AreEqual("5", diff.LeftHash);
         Assert.IsNull(diff.RightHash);
     }
 
@@ -167,9 +167,9 @@ public class TokenStateKeeperTests
         sut.Seed("1", "A");
         sut.Stage(null, "3", "C");
         sut.Commit();
-        var diff = sut.GetCommittedDiff().Single(d => d.RightHash == 3);
+        var diff = sut.GetCommittedDiff().Single(d => d.RightHash == "3");
         Assert.IsNull(diff.LeftHash);
-        Assert.AreEqual(3L, diff.RightHash);
+        Assert.AreEqual("3", diff.RightHash);
     }
 
     [TestMethod]
