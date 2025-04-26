@@ -41,6 +41,15 @@ public class SimpleController(ILogger<SimpleController> logger) : ControllerBase
             keeper.Stage($"333{i}", $"444{i}", "test inserted changed second time");
         }
 
+        keeper.Commit();
+
+        for (var i = 0; i < 5; i++)
+        {
+            keeper.Stage($"{i}", null, null);
+        }
+
+        keeper.Commit();
+
         var diff = keeper.GetCommittedDiff();
         var uDiff = keeper.GetUncommittedDiff();
         //keeper.Commit();

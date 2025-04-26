@@ -190,15 +190,20 @@ namespace TokenKeeper
 
                     // Get staged value if it exists
                     var currentHash = st.Current;
-                    T currentValue;
+                    T currentValue = default; // Initialize to default
+
                     if (_staging.TryGetValue(id, out var stagedHash))
                     {
                         currentHash = stagedHash;
-                        _pool.TryGetValue(stagedHash.GetValueOrDefault(), out currentValue);
+                        // Only try to get value if hash is not null (not deleted)
+                        if (stagedHash.HasValue)
+                        {
+                            _pool.TryGetValue(stagedHash.Value, out currentValue);
+                        }
                     }
-                    else
+                    else if (currentHash.HasValue) // Only get value if hash is not null
                     {
-                        _pool.TryGetValue(st.Current.GetValueOrDefault(), out currentValue);
+                        _pool.TryGetValue(currentHash.Value, out currentValue);
                     }
 
                     // Get initial value - for inserted tokens, initial hash will be null

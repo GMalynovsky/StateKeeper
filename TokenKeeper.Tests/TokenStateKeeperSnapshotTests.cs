@@ -298,4 +298,43 @@ public class TokenStateKeeperSnapshotTests
         var token6 = snapshots.FirstOrDefault(s => s.CurrentHash == "6");
         Assert.AreEqual("6", token6.CurrentHash);
     }
+
+    [TestMethod]
+    public void GetFullCurrentSnapshot_DeletedTokens_ShouldHaveConsistentValues()
+    {
+        // Arrange
+        var sut = Create();
+
+        // Seed a token
+        sut.Seed("1", "Original");
+
+        // Modify it then delete it
+        sut.Stage("1", "2", "Modified");
+        sut.Commit();
+        sut.Stage("2", null, "");
+        sut.Commit();
+
+        // Act
+        var snapshots = sut.GetFullCurrentSnapshot().ToList();
+
+        // Assert
+        Assert.AreEqual(1, snapshots.Count, "Should have one deleted token");
+        var deletedToken = snapshots[0];
+
+        // Debug output
+        Console.WriteLine($"Deleted token: InitialHash={deletedToken.InitialHash}, " +
+                          $"PreviousHash={deletedToken.PreviousHash}, " +
+                          $"CurrentHash={deletedToken.CurrentHash}, " +
+                          $"InitialValue={deletedToken.InitialValue}, " +
+                          $"PreviousValue={deletedToken.PreviousValue}, " +
+                          $"CurrentValue={deletedToken.CurrentValue}");
+
+        // Verify properties
+        Assert.AreEqual("1", deletedToken.InitialHash);
+        Assert.AreEqual("2", deletedToken.PreviousHash);
+        Assert.IsNull(deletedToken.CurrentHash, "CurrentHash should be null for deleted tokens");
+
+        // Now that the implementation is fixed, CurrentValue should correctly be null for deleted tokens
+        Assert.IsNull(deletedToken.CurrentValue, "CurrentValue should be null for deleted tokens");
+    }
 }
