@@ -177,6 +177,51 @@ namespace TokenKeeper
             lock (_sync) { return BuildDiff(st => new Tuple<long?, long?>(st.Previous ?? st.Initial, st.Current)).ToList(); }
         }
 
+        public IEnumerable<TokenSnapshot<T>> GetFullCurrentSnapshot()
+        {
+            lock (_sync)
+            {
+                var results = new List<TokenSnapshot<T>>();
+
+                foreach (var state in _states)
+                {
+                    var id = state.Key;
+                    var st = state.Value;
+
+                    // Get staged value if it exists
+                    var currentHash = st.Current;
+                    T currentValue;
+                    if (_staging.TryGetValue(id, out var stagedHash))
+                    {
+                        currentHash = stagedHash;
+                        _pool.TryGetValue(stagedHash.GetValueOrDefault(), out currentValue);
+                    }
+                    else
+                    {
+                        _pool.TryGetValue(st.Current.GetValueOrDefault(), out currentValue);
+                    }
+
+                    // Get initial value
+                    _pool.TryGetValue(st.Initial.GetValueOrDefault(), out var initialValue);
+
+                    // For previous, use previous if not staged, otherwise use current
+                    var previousHash = _staging.ContainsKey(id) ? st.Current : st.Previous;
+                    _pool.TryGetValue(previousHash.GetValueOrDefault(), out var previousValue);
+
+                    results.Add(new TokenSnapshot<T>(
+                        st.Initial,
+                        previousHash,
+                        currentHash,
+                        initialValue,
+                        previousValue,
+                        currentValue
+                    ));
+                }
+
+                return results;
+            }
+        }
+
         private IEnumerable<TokenDiff<T>> BuildDiff(Func<TokenState, Tuple<long?, long?>> proj)
         {
             foreach (var st in _states.Values)

@@ -51,6 +51,7 @@ namespace TokenKeeper
         IEnumerable<TokenHashDiff<string>> GetCommittedDiff();
         IEnumerable<TokenHashDiff<string>> GetUncommittedDiff();
         IEnumerable<TokenHashDiff<string>> GetFullDiff();
+        IEnumerable<TokenHashSnapshot<string>> GetFullCurrentSnapshot();
     }
 
     public sealed class TokenStateKeeper :
@@ -113,6 +114,18 @@ namespace TokenKeeper
                 d.RightHash?.ToString(),
                 d.LeftValue,
                 d.RightValue
+            ));
+        }
+
+        public IEnumerable<TokenHashSnapshot<string>> GetFullCurrentSnapshot()
+        {
+            return _core.GetFullCurrentSnapshot().Select(s => new TokenHashSnapshot<string>(
+                s.InitialHash?.ToString(),
+                s.PreviousHash?.ToString(),
+                s.CurrentHash?.ToString(),
+                s.InitialValue,
+                s.PreviousValue,
+                s.CurrentValue
             ));
         }
     }
