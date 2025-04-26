@@ -237,19 +237,55 @@ namespace TokenKeeper
         }
     }
 
+    public interface ITokenStateKeeper
+    {
+        TokenOpResult Seed(string hash, string value);
+        TokenOpResult Stage(string oldHash, string newHash, string value);
+        void Commit();
+        void Discard();
+    }
+
+    public interface ITokenStateReader
+    {
+        bool TryGetSnapshot(string hash, out TokenSnapshot<string> snapshot);
+        IEnumerable<TokenDiff<string>> GetCommittedDiff();
+        IEnumerable<TokenDiff<string>> GetUncommittedDiff();
+        IEnumerable<TokenDiff<string>> GetFullDiff();
+    }
+
     public sealed class TokenStateKeeper :
-        ITokenInitializer<string>, ITokenMutator<string>, ITokenReader<string>
+        ITokenStateKeeper, ITokenStateReader
     {
         private sealed class Core : StateKeeper<string> { }
         private readonly Core _core = new Core();
 
-        public TokenOpResult Seed(long hash, string value) => _core.Seed(hash, value);
-        public TokenOpResult Stage(long? oldHash, long? newHash, string value) => _core.Stage(oldHash, newHash, value);
+        public TokenOpResult Seed(string hash, string value)
+        {
+            if (!string.IsNullOrEmpty(hash) && long.TryParse(hash, out var longHash))
+                return _core.Seed(longHash, value);
+            return TokenOpResult.InvalidInput;
+        }
+
+        public TokenOpResult Stage(string oldHash, string newHash, string value)
+        {
+            var oldLongHash = !string.IsNullOrEmpty(oldHash) && long.TryParse(newHash, out var longHash) ? longHash : (long?) null;
+            var newLongHash = !string.IsNullOrEmpty(newHash) && long.TryParse(newHash, out longHash) ? longHash : (long?) null;
+
+            return _core.Stage(oldLongHash, newLongHash, value);
+        }
+
         public void Commit() => _core.Commit();
         public void Discard() => _core.Discard();
 
-        public bool TryGetSnapshot(long hash, out TokenSnapshot<string> snapshot) =>
-            _core.TryGetSnapshot(hash, out snapshot);
+        public bool TryGetSnapshot(string hash, out TokenSnapshot<string> snapshot)
+        {
+            if (!string.IsNullOrEmpty(hash) && long.TryParse(hash, out var longHash))
+                return _core.TryGetSnapshot(longHash, out snapshot);
+
+            snapshot = default;
+            return false;
+        }
+
         public IEnumerable<TokenDiff<string>> GetCommittedDiff() => _core.GetCommittedDiff();
         public IEnumerable<TokenDiff<string>> GetUncommittedDiff() => _core.GetUncommittedDiff();
         public IEnumerable<TokenDiff<string>> GetFullDiff() => _core.GetFullDiff();
