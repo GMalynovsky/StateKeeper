@@ -201,8 +201,12 @@ namespace TokenKeeper
                         _pool.TryGetValue(st.Current.GetValueOrDefault(), out currentValue);
                     }
 
-                    // Get initial value
-                    _pool.TryGetValue(st.Initial.GetValueOrDefault(), out var initialValue);
+                    // Get initial value - for inserted tokens, initial hash will be null
+                    T initialValue = default;
+                    if (st.Initial.HasValue)
+                    {
+                        _pool.TryGetValue(st.Initial.GetValueOrDefault(), out initialValue);
+                    }
 
                     // For previous, use previous if not staged, otherwise use current
                     var previousHash = _staging.ContainsKey(id) ? st.Current : st.Previous;
