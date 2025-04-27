@@ -1,14 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using TokenKeeper.TokenKeeper.Core;
+using TokenKeeper.Abstraction;
 
 namespace TokenKeeper.Core
 {
-    /// <summary>
-    /// Thread-safe implementation of the token state reader.
-    /// Uses the provided lock for synchronization.
-    /// </summary>
     public class ThreadSafeTokenStateReader<T> : ITokenReader<T>
     {
         private readonly TokenStateReader<T> _reader;
@@ -32,7 +28,7 @@ namespace TokenKeeper.Core
         {
             lock (_syncRoot)
             {
-                return _reader.GetCommittedDiff().ToList(); // Make a copy while locked
+                return _reader.GetCommittedDiff().ToList();
             }
         }
 
@@ -40,7 +36,7 @@ namespace TokenKeeper.Core
         {
             lock (_syncRoot)
             {
-                return _reader.GetUncommittedDiff().ToList(); // Make a copy while locked
+                return _reader.GetUncommittedDiff().ToList();
             }
         }
 
@@ -48,7 +44,7 @@ namespace TokenKeeper.Core
         {
             lock (_syncRoot)
             {
-                return _reader.GetFullDiff().ToList(); // Make a copy while locked
+                return _reader.GetFullDiff().ToList();
             }
         }
 
@@ -56,7 +52,7 @@ namespace TokenKeeper.Core
         {
             lock (_syncRoot)
             {
-                return _reader.GetFullCurrentSnapshot().ToList(); // Make a copy while locked
+                return _reader.GetFullCurrentSnapshot().ToList();
             }
         }
     }
