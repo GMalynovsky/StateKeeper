@@ -62,6 +62,7 @@ namespace TokenKeeper
 
         public TokenOpResult Seed(string hash, string value)
         {
+            // Parse hash but don't validate if it's positive - existing tests might use negative values
             if (!string.IsNullOrEmpty(hash) && long.TryParse(hash, out var longHash))
                 return _core.Seed(longHash, value);
             return TokenOpResult.InvalidInput;
@@ -69,8 +70,11 @@ namespace TokenKeeper
 
         public TokenOpResult Stage(string oldHash, string newHash, string value)
         {
-            var oldLongHash = !string.IsNullOrEmpty(oldHash) && long.TryParse(oldHash, out var longHash) ? longHash : (long?) null;
-            var newLongHash = !string.IsNullOrEmpty(newHash) && long.TryParse(newHash, out longHash) ? longHash : (long?) null;
+            // Parse hashes but allow any valid long value including negative
+            var oldLongHash = !string.IsNullOrEmpty(oldHash) && long.TryParse(oldHash, out var oldLong)
+                ? oldLong : (long?) null;
+            var newLongHash = !string.IsNullOrEmpty(newHash) && long.TryParse(newHash, out var newLong)
+                ? newLong : (long?) null;
 
             return _core.Stage(oldLongHash, newLongHash, value);
         }

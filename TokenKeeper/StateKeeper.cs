@@ -116,9 +116,23 @@ namespace TokenKeeper
                     var id = kv.Key;
                     var hash = kv.Value;
                     var st = _states[id];
+
+                    // Remove previous hash mapping if it exists and is changing
+                    if (st.Current.HasValue && st.Current != hash)
+                    {
+                        _hash2Id.Remove(st.Current.Value);
+                    }
+
+                    // Update state
                     st.Previous = st.Current;
                     st.Current = hash;
-                    if (hash.HasValue) _hash2Id[hash.Value] = id; else _hash2Id.Remove(st.Previous.GetValueOrDefault());
+
+                    // Add new hash mapping if present
+                    if (hash.HasValue)
+                    {
+                        _hash2Id[hash.Value] = id;
+                    }
+
                     _states[id] = st;
                 }
                 _staging.Clear();
@@ -139,11 +153,35 @@ namespace TokenKeeper
         {
             lock (_sync)
             {
-                if (!_hash2Id.TryGetValue(hash, out var id)) { snapshot = default; return false; }
+                // Check if this hash exists in the _hash2Id map
+                if (!_hash2Id.TryGetValue(hash, out var id))
+                {
+                    snapshot = default;
+                    return false;
+                }
+
+                // Get the token state
                 var st = _states[id];
+
+                // Check if this token is staged for deletion
+                if (_staging.TryGetValue(id, out var stagedHash) && !stagedHash.HasValue)
+                {
+                    snapshot = default;
+                    return false; // Return false for tokens staged for deletion
+                }
+
+                // Check if the token is deleted (not staged)
+                if (!st.Current.HasValue)
+                {
+                    snapshot = default;
+                    return false; // Return false for deleted tokens
+                }
+
+                // Get values from the pool
                 _pool.TryGetValue(st.Initial.GetValueOrDefault(), out var iv);
                 _pool.TryGetValue(st.Previous.GetValueOrDefault(), out var pv);
-                _pool.TryGetValue(st.Current.GetValueOrDefault(), out var cv);
+                _pool.TryGetValue(st.Current.Value, out var cv);
+
                 snapshot = new TokenSnapshot<T>(st.Initial, st.Previous, st.Current, iv, pv, cv);
                 return true;
             }
@@ -174,7 +212,15 @@ namespace TokenKeeper
 
         public IEnumerable<TokenDiff<T>> GetFullDiff()
         {
-            lock (_sync) { return BuildDiff(st => new Tuple<long?, long?>(st.Previous ?? st.Initial, st.Current)).ToList(); }
+            lock (_sync)
+            {
+                return BuildDiff(st =>
+                {
+                    var left = st.Previous ?? st.Initial;
+                    var right = st.Current;
+                    return new Tuple<long?, long?>(left, right);
+                }).ToList();
+            }
         }
 
         public IEnumerable<TokenSnapshot<T>> GetFullCurrentSnapshot()
@@ -210,12 +256,16 @@ namespace TokenKeeper
                     T initialValue = default;
                     if (st.Initial.HasValue)
                     {
-                        _pool.TryGetValue(st.Initial.GetValueOrDefault(), out initialValue);
+                        _pool.TryGetValue(st.Initial.Value, out initialValue);
                     }
 
                     // For previous, use previous if not staged, otherwise use current
                     var previousHash = _staging.ContainsKey(id) ? st.Current : st.Previous;
-                    _pool.TryGetValue(previousHash.GetValueOrDefault(), out var previousValue);
+                    T previousValue = default; // Initialize to default
+                    if (previousHash.HasValue) // Add this check to prevent GetValueOrDefault returning 0 for null
+                    {
+                        _pool.TryGetValue(previousHash.Value, out previousValue);
+                    }
 
                     results.Add(new TokenSnapshot<T>(
                         st.Initial,
@@ -236,10 +286,22 @@ namespace TokenKeeper
             foreach (var st in _states.Values)
             {
                 var pair = proj(st);
-                var left = pair.Item1; var right = pair.Item2;
-                if (left == right) continue;
-                _pool.TryGetValue(left.GetValueOrDefault(), out var lv);
-                _pool.TryGetValue(right.GetValueOrDefault(), out var rv);
+                var left = pair.Item1;
+                var right = pair.Item2;
+
+                // Skip if both sides are equal or both null
+                if (left == right || (!left.HasValue && !right.HasValue)) continue;
+
+                // Get values from pool (with null safety)
+                T lv = default;
+                T rv = default;
+
+                if (left.HasValue)
+                    _pool.TryGetValue(left.Value, out lv);
+
+                if (right.HasValue)
+                    _pool.TryGetValue(right.Value, out rv);
+
                 yield return new TokenDiff<T>(left, right, lv, rv);
             }
         }
@@ -278,16 +340,29 @@ namespace TokenKeeper
 
         private void Prune()
         {
+            // Collect all live hashes
             var live = new HashSet<long>();
+
+            // Add all hashes from states (initial, previous, current)
             foreach (var st in _states.Values)
             {
                 if (st.Initial.HasValue) live.Add(st.Initial.Value);
                 if (st.Previous.HasValue) live.Add(st.Previous.Value);
                 if (st.Current.HasValue) live.Add(st.Current.Value);
             }
-            foreach (var h in _staging.Values) if (h.HasValue) live.Add(h.Value);
+
+            // Add all non-null hashes from staging
+            foreach (var h in _staging.Values)
+            {
+                if (h.HasValue) live.Add(h.Value);
+            }
+
+            // Identify and remove dead hashes
             var dead = _pool.Keys.Where(h => !live.Contains(h)).ToList();
-            foreach (var h in dead) _pool.Remove(h);
+            foreach (var h in dead)
+            {
+                _pool.Remove(h);
+            }
         }
     }
 }
