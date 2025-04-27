@@ -81,6 +81,13 @@ namespace TokenKeeper
         private readonly Dictionary<Guid, long?> _staging = new Dictionary<Guid, long?>();
         private readonly Dictionary<long, Guid> _hash2Id = new Dictionary<long, Guid>();
         private readonly Dictionary<long, T> _pool = new Dictionary<long, T>();
+
+        // The sanctuary for initial values - never modified after seeding
+        private readonly Dictionary<Guid, T> _initialValueSanctuary = new Dictionary<Guid, T>();
+
+        // Track the latest committed changes
+        private readonly List<Tuple<Guid, long?, long?>> _lastCommittedChanges = new List<Tuple<Guid, long?, long?>>();
+
         private readonly object _sync = new object();
 
         public TokenOpResult Seed(long hash, T value)
@@ -91,6 +98,10 @@ namespace TokenKeeper
                 var id = Guid.NewGuid();
                 _hash2Id[hash] = id;
                 _pool[hash] = value;
+
+                // Store the initial value in the sanctuary
+                _initialValueSanctuary[id] = value;
+
                 _states[id] = new TokenState { Initial = hash, Previous = hash, Current = hash };
                 return TokenOpResult.Success;
             }
@@ -111,11 +122,17 @@ namespace TokenKeeper
         {
             lock (_sync)
             {
+                // Clear previous committed changes
+                _lastCommittedChanges.Clear();
+
                 foreach (var kv in _staging)
                 {
                     var id = kv.Key;
                     var hash = kv.Value;
                     var st = _states[id];
+
+                    // Track the change for committed diff
+                    _lastCommittedChanges.Add(new Tuple<Guid, long?, long?>(id, st.Current, hash));
 
                     // Remove previous hash mapping if it exists and is changing
                     if (st.Current.HasValue && st.Current != hash)
@@ -177,19 +194,62 @@ namespace TokenKeeper
                     return false; // Return false for deleted tokens
                 }
 
-                // Get values from the pool
-                _pool.TryGetValue(st.Initial.GetValueOrDefault(), out var iv);
-                _pool.TryGetValue(st.Previous.GetValueOrDefault(), out var pv);
-                _pool.TryGetValue(st.Current.Value, out var cv);
+                // Get initial value from sanctuary
+                _initialValueSanctuary.TryGetValue(id, out var initialValue);
 
-                snapshot = new TokenSnapshot<T>(st.Initial, st.Previous, st.Current, iv, pv, cv);
+                // Get current and previous values from pool
+                _pool.TryGetValue(st.Previous.GetValueOrDefault(), out var previousValue);
+                _pool.TryGetValue(st.Current.Value, out var currentValue);
+
+                snapshot = new TokenSnapshot<T>(st.Initial, st.Previous, st.Current, initialValue, previousValue, currentValue);
                 return true;
             }
         }
 
         public IEnumerable<TokenDiff<T>> GetCommittedDiff()
         {
-            lock (_sync) { return BuildDiff(st => new Tuple<long?, long?>(st.Previous, st.Current)).ToList(); }
+            lock (_sync)
+            {
+                var result = new List<TokenDiff<T>>();
+
+                // Only return the changes from the last commit
+                foreach (var change in _lastCommittedChanges)
+                {
+                    var id = change.Item1;
+                    var leftHash = change.Item2;
+                    var rightHash = change.Item3;
+
+                    // Skip if no change
+                    if (leftHash == rightHash || (!leftHash.HasValue && !rightHash.HasValue)) continue;
+
+                    T leftValue = default, rightValue = default;
+
+                    // Get left value
+                    if (leftHash.HasValue)
+                    {
+                        var st = _states[id];
+                        if (st.Initial.HasValue && leftHash == st.Initial && _initialValueSanctuary.TryGetValue(id, out var initialValue))
+                        {
+                            // Use sanctuary for initial values
+                            leftValue = initialValue;
+                        }
+                        else if (_pool.TryGetValue(leftHash.Value, out var poolValue))
+                        {
+                            leftValue = poolValue;
+                        }
+                    }
+
+                    // Get right value
+                    if (rightHash.HasValue)
+                    {
+                        _pool.TryGetValue(rightHash.Value, out rightValue);
+                    }
+
+                    result.Add(new TokenDiff<T>(leftHash, rightHash, leftValue, rightValue));
+                }
+
+                return result;
+            }
         }
 
         public IEnumerable<TokenDiff<T>> GetUncommittedDiff()
@@ -202,8 +262,28 @@ namespace TokenKeeper
                     var id = kv.Key; var st = kv.Value;
                     var staged = _staging.TryGetValue(id, out var u) ? u : st.Current;
                     if (staged == st.Current) continue;
-                    _pool.TryGetValue(st.Current.GetValueOrDefault(), out var curVal);
-                    _pool.TryGetValue(staged.GetValueOrDefault(), out var unVal);
+
+                    T curVal = default, unVal = default;
+
+                    // Get current value
+                    if (st.Current.HasValue)
+                    {
+                        if (st.Initial.HasValue && st.Current == st.Initial && _initialValueSanctuary.TryGetValue(id, out var initialValue))
+                        {
+                            curVal = initialValue;
+                        }
+                        else if (_pool.TryGetValue(st.Current.Value, out var poolValue))
+                        {
+                            curVal = poolValue;
+                        }
+                    }
+
+                    // Get staged value
+                    if (staged.HasValue)
+                    {
+                        _pool.TryGetValue(staged.Value, out unVal);
+                    }
+
                     list.Add(new TokenDiff<T>(st.Current, staged, curVal, unVal));
                 }
                 return list;
@@ -214,12 +294,42 @@ namespace TokenKeeper
         {
             lock (_sync)
             {
-                return BuildDiff(st =>
+                var result = new List<TokenDiff<T>>();
+
+                foreach (var kv in _states)
                 {
-                    var left = st.Previous ?? st.Initial;
-                    var right = st.Current;
-                    return new Tuple<long?, long?>(left, right);
-                }).ToList();
+                    var id = kv.Key;
+                    var st = kv.Value;
+
+                    // For seeded tokens, show initial->current
+                    if (st.Initial.HasValue)
+                    {
+                        // Skip if no change or both null
+                        if (st.Initial == st.Current || (!st.Initial.HasValue && !st.Current.HasValue)) continue;
+
+                        // Get initial value from sanctuary
+                        _initialValueSanctuary.TryGetValue(id, out var initialValue);
+
+                        // Get current value from pool
+                        T currentValue = default;
+                        if (st.Current.HasValue)
+                        {
+                            _pool.TryGetValue(st.Current.Value, out currentValue);
+                        }
+
+                        result.Add(new TokenDiff<T>(st.Initial, st.Current, initialValue, currentValue));
+                    }
+                    // For inserted tokens (no initial hash), show null->current
+                    else if (st.Current.HasValue)
+                    {
+                        // Get current value
+                        _pool.TryGetValue(st.Current.Value, out var currentValue);
+
+                        result.Add(new TokenDiff<T>(null, st.Current, default, currentValue));
+                    }
+                }
+
+                return result;
             }
         }
 
@@ -236,7 +346,7 @@ namespace TokenKeeper
 
                     // Get staged value if it exists
                     var currentHash = st.Current;
-                    T currentValue = default; // Initialize to default
+                    T currentValue = default;
 
                     if (_staging.TryGetValue(id, out var stagedHash))
                     {
@@ -247,22 +357,22 @@ namespace TokenKeeper
                             _pool.TryGetValue(stagedHash.Value, out currentValue);
                         }
                     }
-                    else if (currentHash.HasValue) // Only get value if hash is not null
+                    else if (currentHash.HasValue)
                     {
                         _pool.TryGetValue(currentHash.Value, out currentValue);
                     }
 
-                    // Get initial value - for inserted tokens, initial hash will be null
+                    // Get initial value from the sanctuary
                     T initialValue = default;
-                    if (st.Initial.HasValue)
+                    if (st.Initial.HasValue && _initialValueSanctuary.TryGetValue(id, out var value))
                     {
-                        _pool.TryGetValue(st.Initial.Value, out initialValue);
+                        initialValue = value;
                     }
 
                     // For previous, use previous if not staged, otherwise use current
                     var previousHash = _staging.ContainsKey(id) ? st.Current : st.Previous;
-                    T previousValue = default; // Initialize to default
-                    if (previousHash.HasValue) // Add this check to prevent GetValueOrDefault returning 0 for null
+                    T previousValue = default;
+                    if (previousHash.HasValue)
                     {
                         _pool.TryGetValue(previousHash.Value, out previousValue);
                     }
@@ -281,31 +391,6 @@ namespace TokenKeeper
             }
         }
 
-        private IEnumerable<TokenDiff<T>> BuildDiff(Func<TokenState, Tuple<long?, long?>> proj)
-        {
-            foreach (var st in _states.Values)
-            {
-                var pair = proj(st);
-                var left = pair.Item1;
-                var right = pair.Item2;
-
-                // Skip if both sides are equal or both null
-                if (left == right || (!left.HasValue && !right.HasValue)) continue;
-
-                // Get values from pool (with null safety)
-                T lv = default;
-                T rv = default;
-
-                if (left.HasValue)
-                    _pool.TryGetValue(left.Value, out lv);
-
-                if (right.HasValue)
-                    _pool.TryGetValue(right.Value, out rv);
-
-                yield return new TokenDiff<T>(left, right, lv, rv);
-            }
-        }
-
         // --------------------------------------------------------- helpers
         private TokenOpResult StageInsert(long hash, T value)
         {
@@ -313,7 +398,12 @@ namespace TokenKeeper
             var id = Guid.NewGuid();
             _hash2Id[hash] = id;
             _pool[hash] = value;
-            _states[id] = new TokenState();
+
+            // For inserted tokens, also store the value in sanctuary
+            _initialValueSanctuary[id] = value;
+
+            // For inserted tokens, keep Initial hash null
+            _states[id] = new TokenState { Initial = null, Previous = null, Current = null };
             _staging[id] = hash;
             return TokenOpResult.Success;
         }
@@ -331,7 +421,11 @@ namespace TokenKeeper
             if (!_hash2Id.TryGetValue(oldHash, out var id)) return TokenOpResult.UnknownHash;
             if (_hash2Id.TryGetValue(newHash, out var other) && other != id) return TokenOpResult.Collision;
             if (_staging.ContainsKey(id)) return TokenOpResult.AlreadyStaged;
-            if (_pool.TryGetValue(newHash, out var existing) && !EqualityComparer<T>.Default.Equals(existing, value)) return TokenOpResult.Collision;
+
+            // Check for value collision
+            if (_pool.TryGetValue(newHash, out var existing) && !EqualityComparer<T>.Default.Equals(existing, value))
+                return TokenOpResult.Collision;
+
             _hash2Id[newHash] = id;
             _pool[newHash] = value;
             _staging[id] = newHash;
@@ -357,12 +451,14 @@ namespace TokenKeeper
                 if (h.HasValue) live.Add(h.Value);
             }
 
-            // Identify and remove dead hashes
+            // Identify and remove dead hashes from the pool
             var dead = _pool.Keys.Where(h => !live.Contains(h)).ToList();
             foreach (var h in dead)
             {
                 _pool.Remove(h);
             }
+
+            // Initial values in sanctuary are never pruned
         }
     }
 }
