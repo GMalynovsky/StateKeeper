@@ -203,7 +203,7 @@ public class TokenStateKeeperHighloadTests
         GC.Collect();
 
         // Measure memory before
-        long memoryBefore = GC.GetTotalMemory(true);
+        var memoryBefore = GC.GetTotalMemory(true);
 
         // Perform operations (with fewer tokens to make test faster)
         for (var i = 0; i < count; i++) sut.Seed(i.ToString(), $"V{i}");
@@ -211,9 +211,9 @@ public class TokenStateKeeperHighloadTests
         sut.Commit();
 
         // Get some snapshots to ensure all data structures are built
-        for (int i = 0; i < 1000; i++)
+        for (var i = 0; i < 1000; i++)
         {
-            int index = Random.Shared.Next(count);
+            var index = Random.Shared.Next(count);
             sut.TryGetSnapshot((index + count).ToString(), out _);
         }
 
@@ -223,11 +223,11 @@ public class TokenStateKeeperHighloadTests
         GC.Collect();
 
         // Measure memory after
-        long memoryAfter = GC.GetTotalMemory(true);
+        var memoryAfter = GC.GetTotalMemory(true);
 
         // Calculate memory per token
-        long memoryDiff = memoryAfter - memoryBefore;
-        double bytesPerToken = (double) memoryDiff / count;
+        var memoryDiff = memoryAfter - memoryBefore;
+        var bytesPerToken = (double) memoryDiff / count;
 
         Console.WriteLine($"Memory used: {memoryDiff:N0} bytes, {bytesPerToken:N2} bytes per token");
 

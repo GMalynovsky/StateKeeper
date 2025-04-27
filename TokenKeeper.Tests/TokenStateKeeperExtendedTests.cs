@@ -127,10 +127,10 @@ public class TokenStateKeeperExtendedTests
 
         var testCases = new[] {
             // Format: oldHash, newHash, expectedResult, message
-            new { OldHash = (string?)null, NewHash = (string?)null, Expected = TokenOpResult.InvalidInput, Msg = "Both hashes null" },
-            new { OldHash = (string?)null, NewHash = (string ?)"1", Expected = TokenOpResult.DuplicateHash, Msg = "Insert with existing hash" },
-            new { OldHash = (string?)"1", NewHash = (string ?)"2", Expected = TokenOpResult.Collision, Msg = "Update to existing hash" },
-            new { OldHash = (string?)"99", NewHash = (string?)null, Expected = TokenOpResult.UnknownHash, Msg = "Delete unknown hash" },
+            new { OldHash = (string)null, NewHash = (string)null, Expected = TokenOpResult.InvalidInput, Msg = "Both hashes null" },
+            new { OldHash = (string)null, NewHash = "1", Expected = TokenOpResult.DuplicateHash, Msg = "Insert with existing hash" },
+            new { OldHash = "1", NewHash = "2", Expected = TokenOpResult.Collision, Msg = "Update to existing hash" },
+            new { OldHash = "99", NewHash = (string)null, Expected = TokenOpResult.UnknownHash, Msg = "Delete unknown hash" },
         };
 
         foreach (var test in testCases)

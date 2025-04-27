@@ -282,7 +282,7 @@ namespace TokenKeeper.Tests
 
             // Act - Seed many tokens
             var sw = Stopwatch.StartNew();
-            for (int i = 0; i < count; i++)
+            for (var i = 0; i < count; i++)
             {
                 keeper.Seed(i.ToString(), $"Value{i}");
             }
@@ -290,7 +290,7 @@ namespace TokenKeeper.Tests
 
             // Act - Stage many updates
             sw.Restart();
-            for (int i = 0; i < count; i++)
+            for (var i = 0; i < count; i++)
             {
                 keeper.Stage(i.ToString(), (i + count).ToString(), $"Updated{i}");
             }
@@ -430,7 +430,7 @@ namespace TokenKeeper.Tests
             var keeper = TokenStateKeeperProvider.Create<DocumentItem>();
 
             // Create initial documents
-            for (int i = 1; i <= 5; i++)
+            for (var i = 1; i <= 5; i++)
             {
                 var doc = new DocumentItem
                 {
