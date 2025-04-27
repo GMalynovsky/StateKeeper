@@ -4,9 +4,9 @@ using TokenKeeper.Abstraction;
 
 namespace TokenKeeper
 {
-    public readonly struct TokenHashSnapshot<T>
+    public readonly struct TokenHashSnapshot<TValue>
     {
-        public TokenHashSnapshot(string initialHash, string previousHash, string currentHash, T initialValue, T previousValue, T currentValue)
+        public TokenHashSnapshot(string initialHash, string previousHash, string currentHash, TValue initialValue, TValue previousValue, TValue currentValue)
         {
             InitialHash = initialHash;
             PreviousHash = previousHash;
@@ -18,14 +18,14 @@ namespace TokenKeeper
         public string InitialHash { get; }
         public string PreviousHash { get; }
         public string CurrentHash { get; }
-        public T InitialValue { get; }
-        public T PreviousValue { get; }
-        public T CurrentValue { get; }
+        public TValue InitialValue { get; }
+        public TValue PreviousValue { get; }
+        public TValue CurrentValue { get; }
     }
 
-    public readonly struct TokenHashDiff<T>
+    public readonly struct TokenHashDiff<TValue>
     {
-        public TokenHashDiff(string leftHash, string rightHash, T leftValue, T rightValue)
+        public TokenHashDiff(string leftHash, string rightHash, TValue leftValue, TValue rightValue)
         {
             LeftHash = leftHash;
             RightHash = rightHash;
@@ -34,49 +34,51 @@ namespace TokenKeeper
         }
         public string LeftHash { get; }
         public string RightHash { get; }
-        public T LeftValue { get; }
-        public T RightValue { get; }
+        public TValue LeftValue { get; }
+        public TValue RightValue { get; }
     }
 
-    public interface ITokenStateKeeper
+    public interface ITokenStateKeeper<TValue>
     {
-        TokenOpResult Seed(string hash, string value);
-        TokenOpResult Stage(string oldHash, string newHash, string value);
+        TokenOpResult Seed(string hash, TValue value);
+        TokenOpResult Stage(string oldHash, string newHash, TValue value);
         void Commit();
         void Discard();
     }
 
-    public interface ITokenStateReader
+    public interface ITokenStateReader<TValue>
     {
-        bool TryGetSnapshot(string hash, out TokenHashSnapshot<string> snapshot);
-        IEnumerable<TokenHashDiff<string>> GetCommittedDiff();
-        IEnumerable<TokenHashDiff<string>> GetUncommittedDiff();
-        IEnumerable<TokenHashDiff<string>> GetFullDiff();
-        IEnumerable<TokenHashSnapshot<string>> GetFullCurrentSnapshot();
+        bool TryGetSnapshot(string hash, out TokenHashSnapshot<TValue> snapshot);
+        IEnumerable<TokenHashDiff<TValue>> GetCommittedDiff();
+        IEnumerable<TokenHashDiff<TValue>> GetUncommittedDiff();
+        IEnumerable<TokenHashDiff<TValue>> GetFullDiff();
+        IEnumerable<TokenHashSnapshot<TValue>> GetFullCurrentSnapshot();
     }
 
-    public class TokenStateKeeper : ITokenStateKeeper, ITokenStateReader
+    public class TokenStateKeeper<TValue> : ITokenStateKeeper<TValue>, ITokenStateReader<TValue>
     {
-        private readonly ITokenInitializer<string> _initializer;
-        private readonly ITokenMutator<string> _mutator;
-        private readonly ITokenReader<string> _reader;
+        private readonly ITokenInitializer<TValue> _initializer;
+        private readonly ITokenMutator<TValue> _mutator;
+        private readonly ITokenReader<TValue> _reader;
 
         public TokenStateKeeper(IStateKeeperFactory stateKeeperFactory)
         {
-            var (initializer, mutator, reader) = stateKeeperFactory.CreateThreadSafe<string>();
+            var (initializer, mutator, reader) = stateKeeperFactory.CreateThreadSafe<TValue>();
             _initializer = initializer;
             _mutator = mutator;
             _reader = reader;
         }
 
-        public TokenOpResult Seed(string hash, string value)
+        #region ITokenStateKeeper Implementation
+
+        public TokenOpResult Seed(string hash, TValue value)
         {
             if (!string.IsNullOrEmpty(hash) && long.TryParse(hash, out var longHash))
                 return _initializer.Seed(longHash, value);
             return TokenOpResult.InvalidInput;
         }
 
-        public TokenOpResult Stage(string oldHash, string newHash, string value)
+        public TokenOpResult Stage(string oldHash, string newHash, TValue value)
         {
             var oldLongHash = !string.IsNullOrEmpty(oldHash) && long.TryParse(oldHash, out var oldLong)
                 ? oldLong : (long?) null;
@@ -90,12 +92,16 @@ namespace TokenKeeper
 
         public void Discard() => _mutator.Discard();
 
-        public bool TryGetSnapshot(string hash, out TokenHashSnapshot<string> snapshot)
+        #endregion
+
+        #region ITokenStateReader Implementation
+
+        public bool TryGetSnapshot(string hash, out TokenHashSnapshot<TValue> snapshot)
         {
             if (!string.IsNullOrEmpty(hash) && long.TryParse(hash, out var longHash) &&
                 _reader.TryGetSnapshot(longHash, out var internalSnapshot))
             {
-                snapshot = new TokenHashSnapshot<string>(
+                snapshot = new TokenHashSnapshot<TValue>(
                     internalSnapshot.InitialHash?.ToString(),
                     internalSnapshot.PreviousHash?.ToString(),
                     internalSnapshot.CurrentHash?.ToString(),
@@ -110,9 +116,9 @@ namespace TokenKeeper
             return false;
         }
 
-        public IEnumerable<TokenHashDiff<string>> GetCommittedDiff()
+        public IEnumerable<TokenHashDiff<TValue>> GetCommittedDiff()
         {
-            return _reader.GetCommittedDiff().Select(d => new TokenHashDiff<string>(
+            return _reader.GetCommittedDiff().Select(d => new TokenHashDiff<TValue>(
                 d.LeftHash?.ToString(),
                 d.RightHash?.ToString(),
                 d.LeftValue,
@@ -120,9 +126,9 @@ namespace TokenKeeper
             ));
         }
 
-        public IEnumerable<TokenHashDiff<string>> GetUncommittedDiff()
+        public IEnumerable<TokenHashDiff<TValue>> GetUncommittedDiff()
         {
-            return _reader.GetUncommittedDiff().Select(d => new TokenHashDiff<string>(
+            return _reader.GetUncommittedDiff().Select(d => new TokenHashDiff<TValue>(
                 d.LeftHash?.ToString(),
                 d.RightHash?.ToString(),
                 d.LeftValue,
@@ -130,9 +136,9 @@ namespace TokenKeeper
             ));
         }
 
-        public IEnumerable<TokenHashDiff<string>> GetFullDiff()
+        public IEnumerable<TokenHashDiff<TValue>> GetFullDiff()
         {
-            return _reader.GetFullDiff().Select(d => new TokenHashDiff<string>(
+            return _reader.GetFullDiff().Select(d => new TokenHashDiff<TValue>(
                 d.LeftHash?.ToString(),
                 d.RightHash?.ToString(),
                 d.LeftValue,
@@ -140,9 +146,9 @@ namespace TokenKeeper
             ));
         }
 
-        public IEnumerable<TokenHashSnapshot<string>> GetFullCurrentSnapshot()
+        public IEnumerable<TokenHashSnapshot<TValue>> GetFullCurrentSnapshot()
         {
-            return _reader.GetFullCurrentSnapshot().Select(s => new TokenHashSnapshot<string>(
+            return _reader.GetFullCurrentSnapshot().Select(s => new TokenHashSnapshot<TValue>(
                 s.InitialHash?.ToString(),
                 s.PreviousHash?.ToString(),
                 s.CurrentHash?.ToString(),
@@ -150,6 +156,15 @@ namespace TokenKeeper
                 s.PreviousValue,
                 s.CurrentValue
             ));
+        }
+
+        #endregion
+    }
+
+    public class TokenStateKeeper : TokenStateKeeper<string>, ITokenStateKeeper<string>, ITokenStateReader<string>
+    {
+        public TokenStateKeeper(IStateKeeperFactory stateKeeperFactory) : base(stateKeeperFactory)
+        {
         }
     }
 }

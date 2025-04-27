@@ -1,7 +1,13 @@
+using TokenKeeper.Abstraction;
 using TokenKeeper.Core;
 
 namespace TokenKeeper.Tests;
+
 internal static class TokenStateKeeperProvider
 {
-    internal static TokenStateKeeper Create() => new TokenStateKeeper(new StateKeeperFactory());
+    private static readonly IStateKeeperFactory Factory = new StateKeeperFactory();
+
+    internal static TokenStateKeeper Create() => new TokenStateKeeper(Factory);
+
+    internal static TokenStateKeeper<T> Create<T>() => new TokenStateKeeper<T>(Factory);
 }
