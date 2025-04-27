@@ -158,7 +158,6 @@ namespace TokenKeeper.Core
 
                     result.Add(new TokenDiff<T>(st.Initial, st.Current, initialValue, currentValue));
                 }
-
                 else if (st.Current.HasValue)
                 {
                     Store.TryGetValue(st.Current.Value, out var currentValue);
