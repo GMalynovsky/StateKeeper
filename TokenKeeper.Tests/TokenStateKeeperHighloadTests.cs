@@ -5,7 +5,7 @@ namespace TokenKeeper.Tests;
 [TestClass]
 public class TokenStateKeeperHighloadTests
 {
-    private static TokenStateKeeper Create() => new(new CoreStateKeeper());
+    private static TokenStateKeeper Create() => new();
 
     [TestMethod]
     public void Seed_InvalidHash_ReturnsInvalidInput()

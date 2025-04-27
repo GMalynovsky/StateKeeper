@@ -1,13 +1,9 @@
 using System;
 using System.Collections.Generic;
-using TokenKeeper.TokenKeeper.Core;
+using TokenKeeper.Abstraction;
 
 namespace TokenKeeper.Core
 {
-    /// <summary>
-    /// Provides read-only access to token state information.
-    /// Not thread-safe on its own - relies on external synchronization.
-    /// </summary>
     public class TokenStateReader<T> : ITokenReader<T>
     {
         protected readonly ITokenStateStore<T> Store;
@@ -19,39 +15,32 @@ namespace TokenKeeper.Core
 
         public bool TryGetSnapshot(long hash, out TokenSnapshot<T> snapshot)
         {
-            // Check if hash exists in mapping
             if (!Store.TryGetTokenId(hash, out var id))
             {
                 snapshot = default;
                 return false;
             }
 
-            // Get token state
             if (!Store.TryGetTokenState(id, out var st))
             {
                 snapshot = default;
                 return false;
             }
 
-            // Check if token is staged for deletion
             if (Store.TryGetStagedHash(id, out var stagedHash) && !stagedHash.HasValue)
             {
                 snapshot = default;
                 return false;
             }
 
-            // Check if token is deleted
             if (!st.Current.HasValue)
             {
                 snapshot = default;
                 return false;
             }
 
-            // Get initial value
-            T initialValue = default;
-            Store.TryGetInitialValue(id, out initialValue);
+            Store.TryGetInitialValue(id, out var initialValue);
 
-            // Get previous and current values
             T previousValue = default, currentValue = default;
 
             if (st.Previous.HasValue)
@@ -77,13 +66,11 @@ namespace TokenKeeper.Core
                 var leftHash = change.Item2;
                 var rightHash = change.Item3;
 
-                // Skip if no change
                 if (leftHash == rightHash || (!leftHash.HasValue && !rightHash.HasValue))
                     continue;
 
                 T leftValue = default, rightValue = default;
 
-                // Get left value
                 if (leftHash.HasValue)
                 {
                     if (Store.TryGetTokenState(id, out var st) &&
@@ -98,7 +85,6 @@ namespace TokenKeeper.Core
                     }
                 }
 
-                // Get right value
                 if (rightHash.HasValue)
                 {
                     Store.TryGetValue(rightHash.Value, out rightValue);
@@ -119,16 +105,13 @@ namespace TokenKeeper.Core
                 var id = kv.Key;
                 var st = kv.Value;
 
-                // Get staged hash, or use current if not staged
                 var staged = Store.TryGetStagedHash(id, out var hash) ? hash : st.Current;
 
-                // Skip if no change
                 if (staged == st.Current)
                     continue;
 
                 T currentValue = default, stagedValue = default;
 
-                // Get current value
                 if (st.Current.HasValue)
                 {
                     if (st.Initial.HasValue && st.Current == st.Initial &&
@@ -142,7 +125,6 @@ namespace TokenKeeper.Core
                     }
                 }
 
-                // Get staged value
                 if (staged.HasValue)
                 {
                     Store.TryGetValue(staged.Value, out stagedValue);
@@ -163,30 +145,23 @@ namespace TokenKeeper.Core
                 var id = kv.Key;
                 var st = kv.Value;
 
-                // For seeded tokens, show initial->current
                 if (st.Initial.HasValue)
                 {
-                    // Skip if no change or both null
                     if (st.Initial == st.Current || (!st.Initial.HasValue && !st.Current.HasValue))
                         continue;
 
-                    // Get initial value
-                    T initialValue = default;
-                    Store.TryGetInitialValue(id, out initialValue);
+                    Store.TryGetInitialValue(id, out var initialValue);
 
-                    // Get current value
                     T currentValue = default;
                     if (st.Current.HasValue)
                         Store.TryGetValue(st.Current.Value, out currentValue);
 
                     result.Add(new TokenDiff<T>(st.Initial, st.Current, initialValue, currentValue));
                 }
-                // For inserted tokens (no initial hash), show null->current
+
                 else if (st.Current.HasValue)
                 {
-                    // Get current value
-                    T currentValue = default;
-                    Store.TryGetValue(st.Current.Value, out currentValue);
+                    Store.TryGetValue(st.Current.Value, out var currentValue);
 
                     result.Add(new TokenDiff<T>(null, st.Current, default, currentValue));
                 }
@@ -204,7 +179,6 @@ namespace TokenKeeper.Core
                 var id = kv.Key;
                 var st = kv.Value;
 
-                // Get staged value if it exists
                 var currentHash = st.Current;
                 T currentValue = default;
 
@@ -212,7 +186,6 @@ namespace TokenKeeper.Core
                 {
                     currentHash = stagedHash;
 
-                    // Only try to get value if hash is not null (not deleted)
                     if (stagedHash.HasValue)
                         Store.TryGetValue(stagedHash.Value, out currentValue);
                 }
@@ -221,12 +194,10 @@ namespace TokenKeeper.Core
                     Store.TryGetValue(currentHash.Value, out currentValue);
                 }
 
-                // Get initial value
                 T initialValue = default;
                 if (st.Initial.HasValue)
                     Store.TryGetInitialValue(id, out initialValue);
 
-                // For previous, use previous if not staged, otherwise use current
                 var previousHash = Store.HasStagedChanges(id) ? st.Current : st.Previous;
                 T previousValue = default;
 

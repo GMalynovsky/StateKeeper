@@ -3,7 +3,7 @@ namespace TokenKeeper.Tests;
 [TestClass]
 public class TokenStateKeeperSnapshotTests
 {
-    private static TokenStateKeeper Create() => new(new CoreStateKeeper());
+    private static TokenStateKeeper Create() => new();
 
     [TestMethod]
     public void GetFullCurrentSnapshot_AfterSeed_ReturnsCorrectValues()

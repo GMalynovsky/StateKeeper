@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using TokenKeeper.Abstraction;
 using TokenKeeper.Core;
 
 namespace TokenKeeper
@@ -61,7 +62,7 @@ namespace TokenKeeper
         private readonly ITokenMutator<string> _mutator;
         private readonly ITokenReader<string> _reader;
 
-        public TokenStateKeeper(IStateKeeper<string> legacyStateKeeper = null)
+        public TokenStateKeeper()
         {
             var (initializer, mutator, reader) = StateKeeperFactory.CreateThreadSafe<string>();
             _initializer = initializer;
