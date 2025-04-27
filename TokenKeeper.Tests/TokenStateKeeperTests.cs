@@ -5,7 +5,7 @@ namespace TokenKeeper.Tests;
 [TestClass]
 public class TokenStateKeeperTests
 {
-    private static TokenStateKeeper Create() => new();
+    private static TokenStateKeeper Create() => TokenStateKeeperProvider.Create();
 
     [TestMethod]
     public void Seed_DuplicateHash_ReturnsDuplicate()

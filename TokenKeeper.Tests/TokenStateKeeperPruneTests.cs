@@ -3,7 +3,7 @@ namespace TokenKeeper.Tests
     [TestClass]
     public class TokenStateKeeperPruneTests
     {
-        private static TokenStateKeeper Create() => new();
+        private static TokenStateKeeper Create() => TokenStateKeeperProvider.Create();
 
         [TestMethod]
         public void Prune_PreservesTokenHistory_AfterMultipleUpdates()

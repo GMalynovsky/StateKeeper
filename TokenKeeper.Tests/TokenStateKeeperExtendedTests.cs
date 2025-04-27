@@ -5,7 +5,7 @@ namespace TokenKeeper.Tests;
 [TestClass]
 public class TokenStateKeeperExtendedTests
 {
-    private static TokenStateKeeper Create() => new();
+    private static TokenStateKeeper Create() => TokenStateKeeperProvider.Create();
 
     [TestMethod]
     public void MixedOperations_MultithreadedReadsAndWrites_MaintainsConsistency()

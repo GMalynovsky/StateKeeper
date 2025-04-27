@@ -2,9 +2,9 @@ using TokenKeeper.Abstraction;
 
 namespace TokenKeeper.Core
 {
-    public static class StateKeeperFactory
+    public class StateKeeperFactory : IStateKeeperFactory
     {
-        public static (ITokenInitializer<T>, ITokenMutator<T>, ITokenReader<T>) CreateThreadSafe<T>()
+        public (ITokenInitializer<T>, ITokenMutator<T>, ITokenReader<T>) CreateThreadSafe<T>()
         {
             var store = new DictionaryTokenStateStore<T>();
 

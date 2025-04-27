@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using TokenKeeper.Abstraction;
-using TokenKeeper.Core;
 
 namespace TokenKeeper
 {
@@ -62,15 +61,13 @@ namespace TokenKeeper
         private readonly ITokenMutator<string> _mutator;
         private readonly ITokenReader<string> _reader;
 
-        public TokenStateKeeper()
+        public TokenStateKeeper(IStateKeeperFactory stateKeeperFactory)
         {
-            var (initializer, mutator, reader) = StateKeeperFactory.CreateThreadSafe<string>();
+            var (initializer, mutator, reader) = stateKeeperFactory.CreateThreadSafe<string>();
             _initializer = initializer;
             _mutator = mutator;
             _reader = reader;
         }
-
-        #region ITokenStateKeeper Implementation
 
         public TokenOpResult Seed(string hash, string value)
         {
@@ -92,10 +89,6 @@ namespace TokenKeeper
         public void Commit() => _mutator.Commit();
 
         public void Discard() => _mutator.Discard();
-
-        #endregion
-
-        #region ITokenStateReader Implementation
 
         public bool TryGetSnapshot(string hash, out TokenHashSnapshot<string> snapshot)
         {
@@ -158,7 +151,5 @@ namespace TokenKeeper
                 s.CurrentValue
             ));
         }
-
-        #endregion
     }
 }
