@@ -57,8 +57,13 @@ namespace TokenKeeper
     public sealed class TokenStateKeeper :
         ITokenStateKeeper, ITokenStateReader
     {
-        private sealed class Core : StateKeeper<string> { }
-        private readonly Core _core = new Core();
+        private readonly IStateKeeper<string> _core;
+
+        public TokenStateKeeper(IStateKeeper<string> stateKeeper)
+        {
+            // Initialize the core with a string comparer
+            _core = stateKeeper;
+        }
 
         public TokenOpResult Seed(string hash, string value)
         {

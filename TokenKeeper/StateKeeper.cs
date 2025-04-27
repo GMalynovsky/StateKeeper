@@ -75,7 +75,20 @@ namespace TokenKeeper
         IEnumerable<TokenDiff<T>> GetFullDiff();
     }
 
-    internal abstract class StateKeeper<T> : ITokenInitializer<T>, ITokenMutator<T>, ITokenReader<T>
+    public interface IStateKeeper<T>
+    {
+        void Commit();
+        void Discard();
+        IEnumerable<TokenDiff<T>> GetCommittedDiff();
+        IEnumerable<TokenSnapshot<T>> GetFullCurrentSnapshot();
+        IEnumerable<TokenDiff<T>> GetFullDiff();
+        IEnumerable<TokenDiff<T>> GetUncommittedDiff();
+        TokenOpResult Seed(long hash, T value);
+        TokenOpResult Stage(long? oldHash, long? newHash, T value);
+        bool TryGetSnapshot(long hash, out TokenSnapshot<T> snapshot);
+    }
+
+    public abstract class StateKeeper<T> : IStateKeeper<T>
     {
         private readonly Dictionary<Guid, TokenState> _states = new Dictionary<Guid, TokenState>();
         private readonly Dictionary<Guid, long?> _staging = new Dictionary<Guid, long?>();
