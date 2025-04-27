@@ -55,7 +55,7 @@ namespace TokenKeeper
         IEnumerable<TokenHashSnapshot<TValue>> GetFullCurrentSnapshot();
     }
 
-    public class TokenStateKeeper<TValue> : ITokenStateKeeper<TValue>, ITokenStateReader<TValue>
+    public class TokenStateKeeper<TValue> : ITokenStateKeeper<TValue>, ITokenStateReader<TValue> where TValue : class
     {
         private readonly ITokenInitializer<TValue> _initializer;
         private readonly ITokenMutator<TValue> _mutator;

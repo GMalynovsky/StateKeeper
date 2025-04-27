@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using TokenKeeper.Core;
 
 namespace TokenKeeper.API.Controllers;
 [ApiController]
@@ -10,7 +11,7 @@ public class SimpleController(ILogger<SimpleController> logger) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get()
     {
-        var keeper = new TokenStateKeeper();
+        var keeper = new TokenStateKeeper(new StateKeeperFactory());
 
         for (var i = 0; i < 10; i++)
         {

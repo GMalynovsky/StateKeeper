@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Diagnostics;
 
 namespace TokenKeeper.Tests
@@ -10,101 +5,6 @@ namespace TokenKeeper.Tests
     [TestClass]
     public class TokenStateKeeperGenericTests
     {
-        #region Value Type Tests
-
-        [TestMethod]
-        public void PrimitiveValueType_IntOperations_MaintainsCorrectState()
-        {
-            // Arrange
-            var keeper = TokenStateKeeperProvider.Create<int>();
-
-            // Act - Seed with integers
-            for (int i = 1; i <= 5; i++)
-            {
-                keeper.Seed(i.ToString(), i * 10);
-            }
-
-            // Act - Modify values
-            keeper.Stage("1", "101", 15);
-            keeper.Stage("2", "102", 25);
-            keeper.Stage("3", null, 0); // Delete
-            keeper.Commit();
-
-            // Assert
-            var snapshots = keeper.GetFullCurrentSnapshot().ToList();
-            Assert.AreEqual(5, snapshots.Count, "All tokens should be in the snapshot, including deleted ones");
-
-            // Verify active tokens
-            Assert.IsTrue(keeper.TryGetSnapshot("101", out var snapshot1));
-            Assert.AreEqual(15, snapshot1.CurrentValue);
-            Assert.AreEqual(10, snapshot1.InitialValue);
-
-            // Verify deleted token
-            var deletedSnapshot = snapshots.FirstOrDefault(s => s.InitialHash == "3" && s.CurrentHash == null);
-            Assert.IsNotNull(deletedSnapshot, "Deleted token should be in snapshot");
-            Assert.IsNull(deletedSnapshot.CurrentValue, "Deleted token should have null CurrentValue");
-        }
-
-        [TestMethod]
-        public void StructValueType_PointOperations_MaintainsCorrectState()
-        {
-            // Arrange
-            var keeper = TokenStateKeeperProvider.Create<Point>();
-
-            // Act - Seed points
-            keeper.Seed("1", new Point(10, 20));
-            keeper.Seed("2", new Point(30, 40));
-            keeper.Seed("3", new Point(50, 60));
-
-            // Act - Modify points
-            keeper.Stage("1", "101", new Point(15, 25));
-            keeper.Stage("2", null, default); // Delete
-            keeper.Commit();
-
-            // Assert
-            var snapshots = keeper.GetFullCurrentSnapshot().ToList();
-            Assert.AreEqual(3, snapshots.Count, "All tokens should be in snapshot");
-
-            // Verify updated point
-            Assert.IsTrue(keeper.TryGetSnapshot("101", out var snapshot1));
-            Assert.AreEqual(15, snapshot1.CurrentValue.X);
-            Assert.AreEqual(25, snapshot1.CurrentValue.Y);
-            Assert.AreEqual(10, snapshot1.InitialValue.X);
-            Assert.AreEqual(20, snapshot1.InitialValue.Y);
-
-            // Verify deleted point
-            var deletedSnapshot = snapshots.FirstOrDefault(s => s.InitialHash == "2" && s.CurrentHash == null);
-            Assert.IsNotNull(deletedSnapshot, "Deleted token should be in snapshot");
-        }
-
-        [TestMethod]
-        public void NullableValueType_Operations_HandledCorrectly()
-        {
-            // Arrange
-            var keeper = TokenStateKeeperProvider.Create<int?>();
-
-            // Act - Seed with nullable values
-            keeper.Seed("1", 10);
-            keeper.Seed("2", null);
-            keeper.Seed("3", 30);
-
-            // Act - Modify values
-            keeper.Stage("1", "101", null); // Change to null
-            keeper.Stage("2", "102", 20);   // Change from null
-            keeper.Commit();
-
-            // Assert
-            Assert.IsTrue(keeper.TryGetSnapshot("101", out var snapshot1));
-            Assert.IsNull(snapshot1.CurrentValue);
-            Assert.AreEqual(10, snapshot1.InitialValue);
-
-            Assert.IsTrue(keeper.TryGetSnapshot("102", out var snapshot2));
-            Assert.AreEqual(20, snapshot2.CurrentValue);
-            Assert.IsNull(snapshot2.InitialValue);
-        }
-
-        #endregion
-
         #region Reference Type Tests
 
         [TestMethod]
@@ -368,70 +268,10 @@ namespace TokenKeeper.Tests
             Assert.AreEqual(3, snapshot2.InitialValue.Count);
         }
 
-        [TestMethod]
-        public void DefaultValues_HandledCorrectly()
-        {
-            // Arrange
-            var keeper = TokenStateKeeperProvider.Create<Point>();
-
-            // Act - Seed with default struct
-            keeper.Seed("1", default(Point));
-
-            // Act - Update to non-default
-            keeper.Stage("1", "101", new Point(10, 20));
-            keeper.Commit();
-
-            // Assert
-            keeper.TryGetSnapshot("101", out var snapshot);
-            Assert.AreEqual(10, snapshot.CurrentValue.X);
-            Assert.AreEqual(20, snapshot.CurrentValue.Y);
-            Assert.AreEqual(0, snapshot.InitialValue.X);
-            Assert.AreEqual(0, snapshot.InitialValue.Y);
-        }
 
         #endregion
 
         #region Advanced Scenarios
-
-        [TestMethod]
-        public void ConcurrentOperations_WithGenericType_ThreadSafe()
-        {
-            // Arrange
-            var keeper = TokenStateKeeperProvider.Create<Point>();
-            const int iterations = 1000;
-
-            // Seeds in parallel
-            Parallel.For(0, iterations, i =>
-            {
-                keeper.Seed(i.ToString(), new Point(i, i * 2));
-            });
-
-            // Modifications in parallel (updating every even-indexed item)
-            Parallel.For(0, iterations, i =>
-            {
-                if (i % 2 == 0)
-                    keeper.Stage(i.ToString(), (i + iterations).ToString(), new Point(i * 2, i * 3));
-            });
-
-            keeper.Commit();
-
-            // Assert
-            var snapshots = keeper.GetFullCurrentSnapshot().ToList();
-            Assert.AreEqual(iterations, snapshots.Count);
-
-            // Count modified tokens (ones where current hash != initial hash)
-            int modified = snapshots.Count(s => !string.Equals(s.CurrentHash, s.InitialHash));
-            Assert.AreEqual(iterations / 2, modified);
-
-            // Verify a sample of the modified tokens
-            for (int i = 0; i < 10; i += 2)
-            {
-                var newHash = (i + iterations).ToString();
-                Assert.IsTrue(keeper.TryGetSnapshot(newHash, out var snapshot));
-                Assert.AreEqual(i * 2, snapshot.CurrentValue.X);
-                Assert.AreEqual(i * 3, snapshot.CurrentValue.Y);
-            }
-        }
 
         [TestMethod]
         public void LargeDatasets_Performance_ReasonableTime()
@@ -664,60 +504,6 @@ namespace TokenKeeper.Tests
             // Check diffs
             var committedDiff = keeper.GetCommittedDiff().ToList();
             Assert.AreEqual(3, committedDiff.Count); // Update + delete + insert
-        }
-
-        [TestMethod]
-        public void TokenStateKeeper_BatchOperations_HandledCorrectly()
-        {
-            // Arrange
-            var keeper = TokenStateKeeperProvider.Create<int>();
-
-            // Act - Add many items
-            for (int i = 1; i <= 100; i++)
-            {
-                keeper.Seed(i.ToString(), i * 10);
-            }
-
-            // Update every other item
-            for (int i = 1; i <= 100; i += 2)
-            {
-                keeper.Stage(i.ToString(), (i + 1000).ToString(), i * 20);
-            }
-
-            keeper.Commit();
-
-            // Delete every fourth item
-            for (int i = 4; i <= 100; i += 4)
-            {
-                keeper.Stage(i.ToString(), null, 0);
-            }
-
-            keeper.Commit();
-
-            // Assert
-            var allItems = keeper.GetFullCurrentSnapshot().ToList();
-
-            // System keeps deleted tokens in the snapshot
-            // Should have 100 items: 75 active + 25 deleted = 100
-            Assert.AreEqual(100, allItems.Count);
-
-            // Count active items
-            var activeItems = allItems.Count(i => i.CurrentHash != null);
-            Assert.AreEqual(75, activeItems, "Should have 75 active (non-deleted) items");
-
-            // Check some specific values
-            Assert.IsTrue(keeper.TryGetSnapshot("1001", out var item1));
-            Assert.AreEqual(20, item1.CurrentValue);
-
-            Assert.IsTrue(keeper.TryGetSnapshot("2", out var item2));
-            Assert.AreEqual(20, item2.CurrentValue);
-
-            // Item 4 should be deleted but still in the snapshot
-            var deletedItem = allItems.FirstOrDefault(i => i.InitialHash == "4" && i.CurrentHash == null);
-            Assert.IsNotNull(deletedItem, "Deleted item should exist in snapshot");
-
-            // TryGetSnapshot should not return deleted tokens
-            Assert.IsFalse(keeper.TryGetSnapshot("4", out _), "TryGetSnapshot should not return deleted tokens");
         }
 
         #endregion
