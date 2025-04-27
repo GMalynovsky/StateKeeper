@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using TokenKeeper.Abstraction;
 
 namespace TokenKeeper
 {
@@ -54,50 +55,53 @@ namespace TokenKeeper
         IEnumerable<TokenHashSnapshot<string>> GetFullCurrentSnapshot();
     }
 
-    public sealed class TokenStateKeeper :
-        ITokenStateKeeper, ITokenStateReader
+    public class TokenStateKeeper : ITokenStateKeeper, ITokenStateReader
     {
-        private readonly IStateKeeper<string> _core;
+        private readonly ITokenInitializer<string> _initializer;
+        private readonly ITokenMutator<string> _mutator;
+        private readonly ITokenReader<string> _reader;
 
-        public TokenStateKeeper(IStateKeeper<string> stateKeeper)
+        public TokenStateKeeper(IStateKeeperFactory stateKeeperFactory)
         {
-            // Initialize the core with a string comparer
-            _core = stateKeeper;
+            var (initializer, mutator, reader) = stateKeeperFactory.CreateThreadSafe<string>();
+            _initializer = initializer;
+            _mutator = mutator;
+            _reader = reader;
         }
 
         public TokenOpResult Seed(string hash, string value)
         {
-            // Parse hash but don't validate if it's positive - existing tests might use negative values
             if (!string.IsNullOrEmpty(hash) && long.TryParse(hash, out var longHash))
-                return _core.Seed(longHash, value);
+                return _initializer.Seed(longHash, value);
             return TokenOpResult.InvalidInput;
         }
 
         public TokenOpResult Stage(string oldHash, string newHash, string value)
         {
-            // Parse hashes but allow any valid long value including negative
             var oldLongHash = !string.IsNullOrEmpty(oldHash) && long.TryParse(oldHash, out var oldLong)
                 ? oldLong : (long?) null;
             var newLongHash = !string.IsNullOrEmpty(newHash) && long.TryParse(newHash, out var newLong)
                 ? newLong : (long?) null;
 
-            return _core.Stage(oldLongHash, newLongHash, value);
+            return _mutator.Stage(oldLongHash, newLongHash, value);
         }
 
-        public void Commit() => _core.Commit();
-        public void Discard() => _core.Discard();
+        public void Commit() => _mutator.Commit();
+
+        public void Discard() => _mutator.Discard();
 
         public bool TryGetSnapshot(string hash, out TokenHashSnapshot<string> snapshot)
         {
             if (!string.IsNullOrEmpty(hash) && long.TryParse(hash, out var longHash) &&
-                _core.TryGetSnapshot(longHash, out var internalSnapshot))
+                _reader.TryGetSnapshot(longHash, out var internalSnapshot))
             {
-                snapshot = new TokenHashSnapshot<string>(internalSnapshot.InitialHash?.ToString(),
-                     internalSnapshot.PreviousHash?.ToString(),
-                     internalSnapshot.CurrentHash?.ToString(),
-                     internalSnapshot.InitialValue,
-                     internalSnapshot.PreviousValue,
-                     internalSnapshot.CurrentValue);
+                snapshot = new TokenHashSnapshot<string>(
+                    internalSnapshot.InitialHash?.ToString(),
+                    internalSnapshot.PreviousHash?.ToString(),
+                    internalSnapshot.CurrentHash?.ToString(),
+                    internalSnapshot.InitialValue,
+                    internalSnapshot.PreviousValue,
+                    internalSnapshot.CurrentValue);
 
                 return true;
             }
@@ -108,7 +112,7 @@ namespace TokenKeeper
 
         public IEnumerable<TokenHashDiff<string>> GetCommittedDiff()
         {
-            return _core.GetCommittedDiff().Select(d => new TokenHashDiff<string>(
+            return _reader.GetCommittedDiff().Select(d => new TokenHashDiff<string>(
                 d.LeftHash?.ToString(),
                 d.RightHash?.ToString(),
                 d.LeftValue,
@@ -118,7 +122,7 @@ namespace TokenKeeper
 
         public IEnumerable<TokenHashDiff<string>> GetUncommittedDiff()
         {
-            return _core.GetUncommittedDiff().Select(d => new TokenHashDiff<string>(
+            return _reader.GetUncommittedDiff().Select(d => new TokenHashDiff<string>(
                 d.LeftHash?.ToString(),
                 d.RightHash?.ToString(),
                 d.LeftValue,
@@ -128,7 +132,7 @@ namespace TokenKeeper
 
         public IEnumerable<TokenHashDiff<string>> GetFullDiff()
         {
-            return _core.GetFullDiff().Select(d => new TokenHashDiff<string>(
+            return _reader.GetFullDiff().Select(d => new TokenHashDiff<string>(
                 d.LeftHash?.ToString(),
                 d.RightHash?.ToString(),
                 d.LeftValue,
@@ -138,7 +142,7 @@ namespace TokenKeeper
 
         public IEnumerable<TokenHashSnapshot<string>> GetFullCurrentSnapshot()
         {
-            return _core.GetFullCurrentSnapshot().Select(s => new TokenHashSnapshot<string>(
+            return _reader.GetFullCurrentSnapshot().Select(s => new TokenHashSnapshot<string>(
                 s.InitialHash?.ToString(),
                 s.PreviousHash?.ToString(),
                 s.CurrentHash?.ToString(),

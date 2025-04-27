@@ -1,23 +1,17 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
-
 namespace TokenKeeper.Tests
 {
     [TestClass]
     public class TokenStateKeeperPruneTests
     {
-        private static TokenStateKeeper Create() => new(new CoreStateKeeper());
+        private static TokenStateKeeper Create() => TokenStateKeeperProvider.Create();
 
         [TestMethod]
         public void Prune_PreservesTokenHistory_AfterMultipleUpdates()
         {
             var sut = Create();
 
-            // Initial setup
             sut.Seed("1", "A");
 
-            // Multiple modifications
             sut.Stage("1", "2", "B");
             sut.Commit();
             sut.Stage("2", "3", "C");
@@ -25,8 +19,7 @@ namespace TokenKeeper.Tests
             sut.Stage("3", "4", "D");
             sut.Commit();
 
-            // Verify snapshot correctly maintains all history
-            bool exists = sut.TryGetSnapshot("4", out var snapshot);
+            var exists = sut.TryGetSnapshot("4", out var snapshot);
 
             Assert.IsTrue(exists);
             Assert.AreEqual("1", snapshot.InitialHash);
@@ -99,7 +92,7 @@ namespace TokenKeeper.Tests
             Assert.AreEqual("New", newToken.CurrentValue);
 
             // Verify we can get the new token by hash
-            bool exists = sut.TryGetSnapshot("1", out var snapshot);
+            var exists = sut.TryGetSnapshot("1", out var snapshot);
             Assert.IsTrue(exists);
             Assert.AreEqual("New", snapshot.CurrentValue);
         }
@@ -155,20 +148,20 @@ namespace TokenKeeper.Tests
             const int count = 1000;
 
             // Create many tokens
-            for (int i = 0; i < count; i++)
+            for (var i = 0; i < count; i++)
             {
                 sut.Seed(i.ToString(), $"Value{i}");
             }
 
             // Delete half of them (evens)
-            for (int i = 0; i < count; i += 2)
+            for (var i = 0; i < count; i += 2)
             {
                 sut.Stage(i.ToString(), null, "");
             }
             sut.Commit();
 
             // Insert new tokens with the deleted hashes
-            for (int i = 0; i < count; i += 2)
+            for (var i = 0; i < count; i += 2)
             {
                 sut.Stage(null, i.ToString(), $"NewValue{i}");
             }
@@ -236,7 +229,7 @@ namespace TokenKeeper.Tests
             Assert.AreEqual(2, snapshotsAfterReinsert.Count);
 
             // Check that the correct token is returned by TryGetSnapshot
-            bool exists = sut.TryGetSnapshot("1", out var snapshot);
+            var exists = sut.TryGetSnapshot("1", out var snapshot);
             Assert.IsTrue(exists);
             Assert.AreEqual("D", snapshot.CurrentValue);
             Assert.IsNull(snapshot.InitialHash); // It's a new token, not the original
@@ -391,7 +384,7 @@ namespace TokenKeeper.Tests
             const int operationsPerThread = 500;
 
             // Pre-populate with some tokens
-            for (int i = 0; i < 50; i++)
+            for (var i = 0; i < 50; i++)
             {
                 sut.Seed(i.ToString(), $"Value{i}");
             }
@@ -401,11 +394,11 @@ namespace TokenKeeper.Tests
             {
                 var random = new Random(threadId); // Different seed per thread for deterministic randomness
 
-                for (int i = 0; i < operationsPerThread; i++)
+                for (var i = 0; i < operationsPerThread; i++)
                 {
                     // Mix of different operations
-                    int op = random.Next(6);
-                    int tokenId = random.Next(100);
+                    var op = random.Next(6);
+                    var tokenId = random.Next(100);
 
                     switch (op)
                     {
@@ -452,7 +445,7 @@ namespace TokenKeeper.Tests
                 if (snapshot.CurrentHash != null)
                 {
                     // Try getting this token directly
-                    bool exists = sut.TryGetSnapshot(snapshot.CurrentHash, out var directSnapshot);
+                    var exists = sut.TryGetSnapshot(snapshot.CurrentHash, out var directSnapshot);
                     Assert.IsTrue(exists);
                     Assert.AreEqual(snapshot.CurrentValue, directSnapshot.CurrentValue);
                 }
