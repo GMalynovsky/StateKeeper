@@ -188,14 +188,14 @@ public class TokenStateKeeperSnapshotTests
 
         // First token (deleted)
         var deletedToken = snapshots.FirstOrDefault(s => s.InitialHash == "1" && s.CurrentHash == null);
-        Assert.IsNotNull(deletedToken);
+
         Assert.AreEqual("1", deletedToken.InitialHash);
         Assert.AreEqual("1", deletedToken.PreviousHash);
         Assert.IsNull(deletedToken.CurrentHash);
 
         // Second token (reinserted)
         var reinsertedToken = snapshots.FirstOrDefault(s => s.CurrentHash == "1");
-        Assert.IsNotNull(reinsertedToken);
+
         Assert.IsNull(reinsertedToken.InitialHash);
         Assert.IsNull(reinsertedToken.PreviousHash);
         Assert.AreEqual("1", reinsertedToken.CurrentHash);
@@ -211,7 +211,7 @@ public class TokenStateKeeperSnapshotTests
         var sut = Create();
 
         // Initial seeding with 5 tokens
-        for (int i = 0; i < 5; i++)
+        for (var i = 0; i < 5; i++)
         {
             sut.Seed(i.ToString(), $"Value{i}");
         }
