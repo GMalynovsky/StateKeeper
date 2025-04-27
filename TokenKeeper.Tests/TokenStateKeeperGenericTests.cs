@@ -161,7 +161,7 @@ namespace TokenKeeper.Tests
             var keeper = TokenStateKeeperProvider.Create<object>();
 
             // Act - Seed department
-            keeper.Seed("dept1", department);
+            keeper.Seed("1", department);
 
             // Modified department with structural changes
             var updatedDepartment = new
@@ -176,11 +176,11 @@ namespace TokenKeeper.Tests
             };
 
             // Act - Update department
-            keeper.Stage("dept1", "dept2", updatedDepartment);
+            keeper.Stage("1", "2", updatedDepartment);
             keeper.Commit();
 
             // Assert
-            Assert.IsTrue(keeper.TryGetSnapshot("dept2", out var snapshot));
+            Assert.IsTrue(keeper.TryGetSnapshot("2", out var snapshot));
             var currentDept = snapshot.CurrentValue;
             var initialDept = snapshot.InitialValue;
 
@@ -324,17 +324,17 @@ namespace TokenKeeper.Tests
             var keeper = TokenStateKeeperProvider.Create<string>();
 
             // Act - First seed
-            var result1 = keeper.Seed("same-hash", "First Value");
+            var result1 = keeper.Seed("1", "First Value");
 
             // Act - Try to seed again with same hash
-            var result2 = keeper.Seed("same-hash", "Second Value");
+            var result2 = keeper.Seed("1", "Second Value");
 
             // Assert
             Assert.AreEqual(TokenOpResult.Success, result1);
             Assert.AreEqual(TokenOpResult.DuplicateHash, result2);
 
             // Get snapshot and verify only first seed succeeded
-            Assert.IsTrue(keeper.TryGetSnapshot("same-hash", out var snapshot));
+            Assert.IsTrue(keeper.TryGetSnapshot("1", out var snapshot));
             Assert.AreEqual("First Value", snapshot.CurrentValue);
         }
 
@@ -345,21 +345,21 @@ namespace TokenKeeper.Tests
             var keeper = TokenStateKeeperProvider.Create<string>();
 
             // Act - Seed initial value
-            keeper.Seed("hash1", "Initial Value");
+            keeper.Seed("1", "Initial Value");
 
             // Act - Delete the token
-            keeper.Stage("hash1", null, null);
+            keeper.Stage("1", null, null);
             keeper.Commit();
 
             // Act - Reinsert with same hash
-            var result = keeper.Stage(null, "hash1", "New Value");
+            var result = keeper.Stage(null, "1", "New Value");
             keeper.Commit();
 
             // Assert
             Assert.AreEqual(TokenOpResult.Success, result);
 
             // Get snapshot and verify new value
-            Assert.IsTrue(keeper.TryGetSnapshot("hash1", out var snapshot));
+            Assert.IsTrue(keeper.TryGetSnapshot("1", out var snapshot));
             Assert.AreEqual("New Value", snapshot.CurrentValue);
             Assert.IsNull(snapshot.InitialHash);
 
@@ -369,12 +369,12 @@ namespace TokenKeeper.Tests
 
             // Original token should be marked as deleted
             var deletedToken = snapshots.FirstOrDefault(s =>
-                s.InitialHash == "hash1" && s.CurrentHash == null);
+                s.InitialHash == "1" && s.CurrentHash == null);
             Assert.IsNotNull(deletedToken);
 
             // New token should be present with correct value
             var newToken = snapshots.FirstOrDefault(s =>
-                s.CurrentHash == "hash1" && s.InitialHash == null);
+                s.CurrentHash == "1" && s.InitialHash == null);
             Assert.IsNotNull(newToken);
             Assert.AreEqual("New Value", newToken.CurrentValue);
         }
