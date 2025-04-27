@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace TokenKeeper
 {
-    internal struct TokenState
+    public struct TokenState
     {
         public long? Initial;
         public long? Previous;
@@ -73,6 +73,7 @@ namespace TokenKeeper
         IEnumerable<TokenDiff<T>> GetCommittedDiff();
         IEnumerable<TokenDiff<T>> GetUncommittedDiff();
         IEnumerable<TokenDiff<T>> GetFullDiff();
+        IEnumerable<TokenSnapshot<T>> GetFullCurrentSnapshot();
     }
 
     public interface IStateKeeper<T>
