@@ -1,4 +1,4 @@
-namespace TokenKeeper.Tests
+namespace TokenRepository.Tests
 {
     public class DocumentItem
     {

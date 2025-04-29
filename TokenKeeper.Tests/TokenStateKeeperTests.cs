@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace TokenKeeper.Tests;
+namespace TokenRepository.Tests;
 
 [TestClass]
 public class TokenStateKeeperTests

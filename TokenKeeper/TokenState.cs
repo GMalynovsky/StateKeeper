@@ -1,4 +1,4 @@
-namespace TokenKeeper
+namespace TokenRepository
 {
     public struct TokenState
     {

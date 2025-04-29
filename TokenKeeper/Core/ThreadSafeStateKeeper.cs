@@ -1,6 +1,6 @@
-using TokenKeeper.Abstraction;
+using TokenRepository.Abstraction;
 
-namespace TokenKeeper.Core
+namespace TokenRepository.Core
 {
     public class ThreadSafeStateKeeper<T> : BaseStateKeeper<T>
     {

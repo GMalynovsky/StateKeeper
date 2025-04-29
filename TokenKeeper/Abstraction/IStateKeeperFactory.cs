@@ -1,4 +1,4 @@
-namespace TokenKeeper.Abstraction
+namespace TokenRepository.Abstraction
 {
     public interface IStateKeeperFactory
     {

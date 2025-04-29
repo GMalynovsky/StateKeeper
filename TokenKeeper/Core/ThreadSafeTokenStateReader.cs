@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using TokenKeeper.Abstraction;
+using TokenRepository.Abstraction;
 
-namespace TokenKeeper.Core
+namespace TokenRepository.Core
 {
     public class ThreadSafeTokenStateReader<T> : ITokenReader<T>
     {

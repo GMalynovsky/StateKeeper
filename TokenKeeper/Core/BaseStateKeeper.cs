@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using TokenKeeper.Abstraction;
+using TokenRepository.Abstraction;
 
-namespace TokenKeeper.Core
+namespace TokenRepository.Core
 {
     public abstract class BaseStateKeeper<T> : ITokenInitializer<T>, ITokenMutator<T>
     {

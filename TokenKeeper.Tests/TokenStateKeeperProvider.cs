@@ -1,7 +1,7 @@
-using TokenKeeper.Abstraction;
-using TokenKeeper.Core;
+using TokenRepository.Abstraction;
+using TokenRepository.Core;
 
-namespace TokenKeeper.Tests;
+namespace TokenRepository.Tests;
 
 internal static class TokenStateKeeperProvider
 {

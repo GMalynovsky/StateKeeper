@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TokenKeeper.Abstraction
+namespace TokenRepository.Abstraction
 {
     public interface IStateKeeper<T>
     {

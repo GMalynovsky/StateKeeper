@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using TokenKeeper.Abstraction;
+using TokenRepository.Abstraction;
 
-namespace TokenKeeper
+namespace TokenRepository
 {
     public readonly struct TokenHashSnapshot<TValue>
     {

@@ -1,6 +1,6 @@
 using System;
 
-namespace TokenKeeper
+namespace TokenRepository
 {
     public readonly struct TokenSnapshot<T>
     {

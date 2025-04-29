@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using TokenKeeper.Core;
+using TokenRepository.Core;
 
-namespace TokenKeeper.API.Controllers;
+namespace TokenRepository.API.Controllers;
 [ApiController]
 [Route("[controller]")]
 public class SimpleController(ILogger<SimpleController> logger) : ControllerBase
