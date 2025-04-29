@@ -13,42 +13,24 @@ public class SimpleController(ILogger<SimpleController> logger) : ControllerBase
     {
         var keeper = new TokenStateKeeper(new StateKeeperFactory());
 
-        for (var i = 0; i < 10; i++)
+        for (var i = 1; i <= 10; i++)
         {
             keeper.Seed($"{i}", "test");
         }
 
-        for (var i = 0; i < 5; i++)
-        {
-            keeper.Stage($"{i * 2}", $"222{i * 2}", "test changed");
-        }
-
-        for (var i = 10; i < 15; i++)
-        {
-            keeper.Stage(null, $"{i}", "test inserted");
-        }
-
+        keeper.Stage("1", "11", "test1");
         keeper.Commit();
 
-        for (var i = 10; i < 15; i++)
-        {
-            keeper.Stage($"{i}", $"333{i}", "test inserted changed");
-        }
-
+        keeper.Stage("11", null, null);
         keeper.Commit();
 
-        for (var i = 10; i < 15; i++)
-        {
-            keeper.Stage($"333{i}", $"444{i}", "test inserted changed second time");
-        }
-
+        keeper.Stage("11", null, null);
         keeper.Commit();
 
-        for (var i = 0; i < 5; i++)
-        {
-            keeper.Stage($"{i}", null, null);
-        }
+        keeper.Stage("12", null, null);
+        keeper.Commit();
 
+        keeper.Stage("12", null, null);
         keeper.Commit();
 
         var diff = keeper.GetCommittedDiff();

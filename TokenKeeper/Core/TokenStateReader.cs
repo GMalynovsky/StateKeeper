@@ -49,7 +49,7 @@ namespace TokenKeeper.Core
             if (st.Current.HasValue)
                 Store.TryGetValue(st.Current.Value, out currentValue);
 
-            snapshot = new TokenSnapshot<T>(
+            snapshot = new TokenSnapshot<T>(id,
                 st.Initial, st.Previous, st.Current,
                 initialValue, previousValue, currentValue);
 
@@ -203,7 +203,7 @@ namespace TokenKeeper.Core
                 if (previousHash.HasValue)
                     Store.TryGetValue(previousHash.Value, out previousValue);
 
-                results.Add(new TokenSnapshot<T>(
+                results.Add(new TokenSnapshot<T>(id,
                     st.Initial, previousHash, currentHash,
                     initialValue, previousValue, currentValue));
             }

@@ -1,9 +1,12 @@
+using System;
+
 namespace TokenKeeper
 {
     public readonly struct TokenSnapshot<T>
     {
-        public TokenSnapshot(long? initialHash, long? previousHash, long? currentHash, T initialValue, T previousValue, T currentValue)
+        public TokenSnapshot(Guid id, long? initialHash, long? previousHash, long? currentHash, T initialValue, T previousValue, T currentValue)
         {
+            Id = id;
             InitialHash = initialHash;
             PreviousHash = previousHash;
             CurrentHash = currentHash;
@@ -11,6 +14,8 @@ namespace TokenKeeper
             PreviousValue = previousValue;
             CurrentValue = currentValue;
         }
+
+        public Guid Id { get; }
         public long? InitialHash { get; }
         public long? PreviousHash { get; }
         public long? CurrentHash { get; }

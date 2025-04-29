@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using TokenKeeper.Abstraction;
@@ -6,8 +7,9 @@ namespace TokenKeeper
 {
     public readonly struct TokenHashSnapshot<TValue>
     {
-        public TokenHashSnapshot(string initialHash, string previousHash, string currentHash, TValue initialValue, TValue previousValue, TValue currentValue)
+        public TokenHashSnapshot(Guid id, string initialHash, string previousHash, string currentHash, TValue initialValue, TValue previousValue, TValue currentValue)
         {
+            Id = id;
             InitialHash = initialHash;
             PreviousHash = previousHash;
             CurrentHash = currentHash;
@@ -15,6 +17,8 @@ namespace TokenKeeper
             PreviousValue = previousValue;
             CurrentValue = currentValue;
         }
+
+        public Guid Id { get; }
         public string InitialHash { get; }
         public string PreviousHash { get; }
         public string CurrentHash { get; }
@@ -102,6 +106,7 @@ namespace TokenKeeper
                 _reader.TryGetSnapshot(longHash, out var internalSnapshot))
             {
                 snapshot = new TokenHashSnapshot<TValue>(
+                    internalSnapshot.Id,
                     internalSnapshot.InitialHash?.ToString(),
                     internalSnapshot.PreviousHash?.ToString(),
                     internalSnapshot.CurrentHash?.ToString(),
@@ -149,6 +154,7 @@ namespace TokenKeeper
         public IEnumerable<TokenHashSnapshot<TValue>> GetFullCurrentSnapshot()
         {
             return _reader.GetFullCurrentSnapshot().Select(s => new TokenHashSnapshot<TValue>(
+                s.Id,
                 s.InitialHash?.ToString(),
                 s.PreviousHash?.ToString(),
                 s.CurrentHash?.ToString(),
